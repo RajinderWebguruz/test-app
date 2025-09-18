@@ -96,6 +96,11 @@ android {
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+
+        manifestPlaceholders = [
+            auth0Domain: "dev-6qnrfng57jbtstly.us.auth0.com",
+            auth0Scheme: "com.rajinder160725.y"
+        ]
     }
     signingConfigs {
         debug {

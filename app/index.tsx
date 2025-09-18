@@ -1,131 +1,148 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  Button,
-  SafeAreaView,
-  StyleSheet,
-  Text,
   View,
-  Clipboard,
-  Alert,
+  Text,
+  Button,
+  StyleSheet,
   TextInput,
+  Alert,
+  Platform,
 } from "react-native";
-
 import SmsRetriever from "react-native-sms-retriever";
-import Auth0 from "react-native-auth0";
 
-export default function Index() {
-  // Use your static production hash here
-  const appHash = "gQObt5NXT0F";
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [isOTPSent, setIsOTPSent] = useState(false);
-
-  const auth0 = new Auth0({
-    domain: "dev-6qnrfng57jbtstly.us.auth0.com",
-    clientId: "6mTIELaVgQZA6rCfgYFisYtrjC1RrAiq",
-  });
+const App = () => {
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [receivedSms, setReceivedSms] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let smsListener: any;
-    const startSmsListener = async () => {
-      try {
-        smsListener = SmsRetriever.addSmsListener((event) => {
-          const message = event.message as string;
-          // Extract 6-digit OTP from the message
-          const otpMatch = message.match(/\d{6}/);
-          if (otpMatch) {
-            setOtp(otpMatch[0]);
-            Alert.alert("OTP Captured", otpMatch[0]);
-            SmsRetriever.removeSmsListener();
+    if (scanning) {
+      const addListener = async () => {
+        try {
+          if (Platform.OS === "android") {
+            // Start the SMS retriever
+            await SmsRetriever.startSmsRetriever();
+            console.log("SMS Retriever started");
+
+            // Add the listener
+            SmsRetriever.addSmsListener((event) => {
+              console.log(event.message);
+              setScanning(false);
+              setReceivedSms(event.message ?? null);
+              // OTP extraction logic would go here
+              SmsRetriever.removeSmsListener();
+            });
           }
-        });
-        await SmsRetriever.startSmsRetriever();
-      } catch (error) {
-        console.warn("SMS Retriever error:", error);
-      }
-    };
+        } catch (e) {
+          console.error(e);
+          setScanning(false);
+          setError("Failed to start SMS listener.");
+        }
+      };
+      addListener();
 
-    startSmsListener();
-
-    return () => {
-      if (smsListener) SmsRetriever.removeSmsListener();
-    };
-  }, []);
-
-  const sendOTP = async () => {
-    try {
-      await auth0.auth.passwordlessWithSMS({ phoneNumber: phone });
-      setIsOTPSent(true);
-      Alert.alert("OTP sent!");
-    } catch (e: any) {
-      Alert.alert("Error sending OTP", e.message);
+      // Clean up the listener on component unmount
+      return () => {
+        if (Platform.OS === "android") {
+          SmsRetriever.removeSmsListener();
+        }
+      };
     }
-  };
+  }, [scanning]);
 
-  const verifyOTP = async () => {
-    try {
-      const response = await auth0.auth.loginWithSMS({
-        phoneNumber: phone,
-        code: otp,
-      });
-      Alert.alert("Success!", "Logged in: " + JSON.stringify(response));
-    } catch (e: any) {
-      Alert.alert("Error verifying OTP", e.message);
+  const startSmsScan = async () => {
+    if (Platform.OS === "android") {
+      setScanning(true);
+      setReceivedSms(null);
+      setError(null);
+    } else {
+      Alert.alert(
+        "Unsupported Platform",
+        "SMS Retriever is only available on Android."
+      );
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>SMS Retriever App Hash</Text>
-      <Text style={styles.label}>11-char Hash:</Text>
-      <Text selectable style={styles.hash}>
-        {appHash}
-      </Text>
-      <View style={{ height: 20 }} />
-      <Text style={styles.note}>
-        This hash must match the one used in your production SMS message.
-      </Text>
-      <View style={{ marginTop: 20 }}>
-        <Text>Auto-captured OTP: {otp}</Text>
-      </View>
-      <View style={{ marginTop: 20 }}>
-        <Text>Phone Number:</Text>
-        <TextInput
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="+1234567890"
-          keyboardType="phone-pad"
-          style={{ borderWidth: 1, marginBottom: 10, padding: 5 }}
-        />
-        <Button title="Send OTP" onPress={sendOTP} disabled={isOTPSent} />
-        {isOTPSent && (
-          <>
-            <Text>Enter OTP:</Text>
-            <TextInput
-              value={otp}
-              onChangeText={setOtp}
-              placeholder="123456"
-              keyboardType="number-pad"
-              style={{ borderWidth: 1, marginBottom: 10, padding: 5 }}
-            />
-            <Button title="Verify OTP" onPress={verifyOTP} />
-          </>
-        )}
-      </View>
-    </SafeAreaView>
+    <View style={styles.container}>
+      <Text style={styles.title}>SMS Retriever Example</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Enter Phone Number (for context)"
+        onChangeText={setPhoneNumber}
+        value={phoneNumber}
+        keyboardType="phone-pad"
+      />
+
+      <Button
+        title="Start SMS Scan"
+        onPress={startSmsScan}
+        disabled={scanning}
+      />
+
+      {scanning && (
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>Initiating SMS scan...</Text>
+          <Text style={styles.statusText}>Waiting for SMS...</Text>
+        </View>
+      )}
+
+      {receivedSms && (
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>SMS Received!</Text>
+          <Text style={styles.smsContent}>{receivedSms}</Text>
+        </View>
+      )}
+
+      {error && (
+        <View style={styles.statusContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
-    justifyContent: "flex-start",
-    backgroundColor: "#fff",
   },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 12 },
-  label: { fontSize: 14, color: "#333", marginTop: 8 },
-  value: { fontSize: 13, color: "#111" },
-  hash: { fontSize: 20, fontWeight: "700", marginTop: 4 },
-  note: { fontSize: 12, color: "#666" },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  input: {
+    width: "100%",
+    height: 40,
+    borderColor: "gray",
+    borderWidth: 1,
+    borderRadius: 5,
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  statusContainer: {
+    marginTop: 20,
+    alignItems: "center",
+  },
+  statusText: {
+    fontSize: 16,
+    color: "blue",
+  },
+  smsContent: {
+    fontSize: 14,
+    color: "green",
+    marginTop: 10,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "red",
+  },
 });
+
+export default App;

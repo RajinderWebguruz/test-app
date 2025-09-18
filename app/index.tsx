@@ -8,65 +8,63 @@ import {
   Alert,
   Platform,
 } from "react-native";
-import SmsRetriever from "react-native-sms-retriever";
+import RNOtpVerify from "react-native-otp-verify";
 
 const App = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [scanning, setScanning] = useState(false);
   const [receivedSms, setReceivedSms] = useState<string | null>(null);
+  const [otp, setOtp] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hash, setHash] = useState<string[]>([]);
 
   useEffect(() => {
-    if (scanning) {
-      const addListener = async () => {
-        try {
-          if (Platform.OS === "android") {
-            // Start the SMS retriever
-            await SmsRetriever.startSmsRetriever();
-            console.log("SMS Retriever started");
+    if (scanning && Platform.OS === "android") {
+      RNOtpVerify.getHash()
+        .then((hashArray) => {
+          setHash(hashArray);
+        })
+        .catch((err) => setError(err.message));
 
-            // Add the listener
-            SmsRetriever.addSmsListener((event) => {
-              console.log(event.message);
-              setScanning(false);
-              setReceivedSms(event.message ?? null);
-              // OTP extraction logic would go here
-              SmsRetriever.removeSmsListener();
-            });
-          }
-        } catch (e) {
-          console.error(e);
+      RNOtpVerify.getOtp()
+        .then(() => {
+          RNOtpVerify.addListener((message) => {
+            setReceivedSms(message);
+            const match = message.match(/\b\d{6}\b/);
+            if (match) setOtp(match[0]);
+            setScanning(false);
+            RNOtpVerify.removeListener();
+          });
+        })
+        .catch((e) => {
+          setError("Failed to start OTP listener.");
           setScanning(false);
-          setError("Failed to start SMS listener.");
-        }
-      };
-      addListener();
+        });
 
-      // Clean up the listener on component unmount
       return () => {
-        if (Platform.OS === "android") {
-          SmsRetriever.removeSmsListener();
-        }
+        RNOtpVerify.removeListener();
       };
     }
   }, [scanning]);
 
-  const startSmsScan = async () => {
+  const startSmsScan = () => {
     if (Platform.OS === "android") {
       setScanning(true);
       setReceivedSms(null);
+      setOtp(null);
       setError(null);
+      setHash([]);
     } else {
       Alert.alert(
         "Unsupported Platform",
-        "SMS Retriever is only available on Android."
+        "OTP auto-capture is only available on Android."
       );
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>SMS Retriever Example</Text>
+      <Text style={styles.title}>OTP Auto-Capture Example</Text>
 
       <TextInput
         style={styles.input}
@@ -77,15 +75,32 @@ const App = () => {
       />
 
       <Button
-        title="Start SMS Scan"
+        title="Start OTP Scan"
         onPress={startSmsScan}
         disabled={scanning}
       />
 
       {scanning && (
         <View style={styles.statusContainer}>
-          <Text style={styles.statusText}>Initiating SMS scan...</Text>
+          <Text style={styles.statusText}>Initiating OTP scan...</Text>
           <Text style={styles.statusText}>Waiting for SMS...</Text>
+        </View>
+      )}
+
+      {hash.length > 0 && (
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>Hash Values:</Text>
+          {hash.map((hashValue, index) => (
+            <Text key={index} style={styles.smsContent}>
+              {hashValue}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {otp && (
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>Auto-captured OTP: {otp}</Text>
         </View>
       )}
 

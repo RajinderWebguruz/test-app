@@ -1,0 +1,23 @@
+{
+  "build": {
+    "production": {
+      "android": {
+        "buildType": "apk",
+        "distribution": "internal"
+      }
+    },
+    "development": {
+      "android": {
+        "buildType": "apk",
+        "distribution": "internal",
+        "developmentClient": true
+      }
+    },
+    "preview": {
+      "android": {
+        "buildType": "apk",
+        "distribution": "internal"
+      }
+    }
+  }
+}

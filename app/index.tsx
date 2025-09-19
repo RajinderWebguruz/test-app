@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "flex-end", // Stick content to the right
+    // alignItems: "flex-start", // Stick content to the right
     padding: 20,
   },
   title: {
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 15,
     lineHeight: 22,
-    textAlign: "right", // make text direction RTL
+    // textAlign: "left", // make text direction RTL
   },
 });
 
